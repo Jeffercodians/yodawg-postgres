@@ -1,0 +1,10 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: "${SERVICE_PASSWORD_SU}"
+    volumes:
+      - "${SERVICE_DATA}/postgres:/var/lib/postgres/data"
+    ports:
+      - "${SERVICE_PORT_DB}:5432"

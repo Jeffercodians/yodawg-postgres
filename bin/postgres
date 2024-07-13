@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+
+# @cmd
+status() {
+	include "<docker>"
+
+	docker::compose ps
+}
+
+# @cmd
+up() {
+	include "<docker>"
+
+	docker::compose up -d
+}
+
+# @cmd
+down() {
+	include "<docker>"
+
+	docker::compose down
+}
+
+# @cmd
+logs() {
+	include "<docker>"
+
+	docker::compose logs
+}
+
+# @cmd
+# @arg command[=psql|createuser|createdb|dropdb|dropuser]
+# @arg args~
+pg_exec() {
+	include "<docker>"
+
+	docker::compose exec --user postgres "${SERVICE_FRONTEND}" \
+		"${argc_command}" "${argc_args[@]}"
+}
+
+# @cmd
+list_dbs() {
+	"${0}" pg_exec psql --csv -c '\l' | \
+		cut -d',' -f1 | \
+		tail -n+2 | \
+		head -n-5
+}
+
+# @cmd
+# @arg name!
+db_exists() {
+	list_dbs | grep -q "${argc_name:-"${1}"}"
+}
+
+# @cmd
+# @arg  name!
+add_db() {
+	db_exists "${argc_name}" && return ||:
+
+	"${0}" pg_exec createdb "${argc_name}"
+	"${0}" pg_exec createuser "${argc_name}"
+	"${0}" pg_exec psql -c "alter user ${argc_name} with encrypted password '$(service::get_password "db_${argc_name}")';"
+	"${0}" pg_exec psql -c "grant all privileges on database ${argc_name} to ${argc_name};"
+}
+
+# @cmd
+# @arg  name!
+get_db_password() {
+	db_exists "${argc_name}" && \
+		service::get_password "db_${argc_name}"
+}
+
+# @cmd
+get_db_port() {
+	echo "${SERVICE_PORT_DB}"
+}
+
+eval "$(argc --argc-eval "${0}" "${@}")"
